@@ -28,8 +28,8 @@ ex: -A0 means: pin A0 normally high, low when button pushed (reverse logic)
     class keyIn:public menuIn {
     public:
       keyMap* keys;
-      int lastkey;
-      unsigned long pressMills=0;
+      int lastkey, buttonState[N], lastButtonState[N];
+      unsigned long pressMills=0, lastDebounceTime[N], debounceDelay=70; //debounceDelay in ms
       keyIn<N>(keyMap k[]):keys(k),lastkey(-1) {}
       void begin() {
         for(int n=0;n<N;n++)
@@ -54,12 +54,24 @@ ex: -A0 means: pin A0 normally high, low when button pushed (reverse logic)
       }
       int peek(void) {
         //MENU_DEBUG_OUT<<"peek"<<endl;
+	int reading,retour;
         for(int n=0;n<N;n++) {
           int8_t pin=keys[n].pin;
-		  uint8_t mode = keys[n].mode == INPUT_PULLUP ? LOW : HIGH;
-          if (digitalRead(pin) == mode ) return keys[n].code;
-        }
-        return -1;
+	  uint8_t mode = keys[n].mode == INPUT_PULLUP ? LOW : HIGH;
+          reading = digitalRead(pin);
+          if (reading != lastButtonState[n])
+             lastDebounceTime[n] = millis();
+          if ((millis() - lastDebounceTime[n]) > debounceDelay) {
+             if (reading != buttonState[n]) {
+               buttonState[n] = reading;
+                if (buttonState[n] == mode)
+                   retour = keys[n].code;break;
+                else retour = -1;
+             }
+          }
+          lastButtonState[n] = reading;
+         }
+         return retour;
       }
       int read() {
         //MENU_DEBUG_OUT<<"read"<<endl;
